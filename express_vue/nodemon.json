@@ -1,0 +1,6 @@
+{
+  "watch": ["."],
+  "ext": "js,json,ts,vue",
+  "ignore": ["node_modules", "frontend/dist"],
+  "exec": "node app.js"
+}
