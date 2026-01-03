@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediaSource Audio Streaming</title>
+</head>
+<body>
+
+  <h1>Using tag audio can't tracking error on server when playing, swich to MediaSource to has more control on chunk, also can log chunks</h1>
+
+  <h2>Audio with src = MediaSource (normal stream)</h2>
+  <audio id="audioNormal" controls></audio>
+  <button onclick="playNormal()">Play Normal</button>
+  <br /><br />
+
+  <h2>Audio with src = MediaSource (error after 3s)</h2>
+  <audio id="audioError" controls></audio>
+  <button onclick="playError()">Play Error</button>
+  <br /><br />
+
+  <h2>Audio with src = MediaSource (slow stream)</h2>
+  <audio id="audioSlow" controls></audio>
+  <button onclick="playSlow()">Play Slow</button>
+
+  <script>
+    async function fetchAndAppend(url, sourceBuffer) {
+      //4. Init ReadableStreamDefaultReader<Uint8Array<ArrayBuffer>> object
+      const response = await fetch(url);
+      const reader = response.body.getReader();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        try {
+          //6. Chunks wait line by line to be update, not async all at once
+          await appendChunk(sourceBuffer, value);
+        } catch (e) {
+          console.error("Error appending chunk:", e);
+          break;
+        }
+      }
+    }
+
+    function appendChunk(sourceBuffer, chunk) {
+      return new Promise((resolve, reject) => {
+        function onUpdateEnd() {
+          sourceBuffer.removeEventListener("updateend", onUpdateEnd);
+          resolve();
+        }
+
+        //5. sourceBuffer.appendBuffer() is asyn and fire 'updateend' when done updating
+        //Attach a onUpdateEnd() function to resolve() append chunk and make it sync and allow next chunk to be update
+        //Remove this line with error at the second chunk (because first chunk still updating)
+        //sourceBuffer.addEventListener("updateend", onUpdateEnd);
+
+        try {
+          sourceBuffer.appendBuffer(chunk);
+          console.log(chunk)
+        } catch (e) {
+          reject(e);
+        }
+      });
+    }
+
+    async function playWithMediaSource(audioEl, url) {
+      if (!window.MediaSource) {
+        alert("MediaSource API is not supported in your browser");
+        return;
+      }
+
+      //1. Create mediaSource object
+      const mediaSource = new MediaSource();
+
+      //2. Assign audio url to blob:http://localhost:3000/48e5837e-317a-43bf-889e-4a477de2b9ca
+      audioEl.src = URL.createObjectURL(mediaSource);
+
+      mediaSource.addEventListener("sourceopen", async () => {
+        //3. Init sourceBuffer to ready append chunks from api return
+        const mime = 'audio/mpeg';
+        const sourceBuffer = mediaSource.addSourceBuffer(mime);
+
+        try {
+          await fetchAndAppend(url, sourceBuffer);
+        } catch (e) {
+          console.error("Streaming failed:", e);
+        } finally {
+          if (!mediaSource.ended) {
+            mediaSource.endOfStream();
+          }
+        }
+      });
+
+      audioEl.play().catch(console.error);
+    }
+
+    function playNormal() {
+      playWithMediaSource(document.getElementById("audioNormal"), "/local-stream");
+    }
+
+    function playError() {
+      playWithMediaSource(document.getElementById("audioError"), "/local-stream-error");
+    }
+
+    function playSlow() {
+      playWithMediaSource(document.getElementById("audioSlow"), "/slow-stream");
+    }
+  </script>
+</body>
+</html>
