@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <!-- ORIGINAL -->
+    <button onclick="play()">Play whole file</button>
+    <audio id="audio" controls></audio>
+
+    <hr />
+
+    <!-- NEW STREAMING UI -->
+    <textarea id="text" rows="4" cols="40">
+Hello this starts playing immediately
+    </textarea>
+    <br />
+    <button onclick="playStream()">Play stream</button>
+    <audio id="streamAudio" controls autoplay></audio>
+
+    <script>
+      // ORIGINAL
+      async function play() {
+        const res = await fetch("/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: "1" }),
+        });
+
+        const blob = await res.blob();
+        document.getElementById("audio").src = URL.createObjectURL(blob);
+      }
+
+      // NEW STREAMING
+      async function playStream() {
+        const text = document.getElementById("text").value;
+
+        const res = await fetch("/tts-stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+
+        // Browser will start playing while chunks arrive
+        const audio = document.getElementById("streamAudio");
+        audio.src = URL.createObjectURL(await res.blob());
+        audio.play();
+      }
+    </script>
+  </body>
+</html>

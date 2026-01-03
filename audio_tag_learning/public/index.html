@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div>
+      <h2>Audio with src .mp3 and controls attribute</h2>
+      <audio src="song.mp3" controls />
+      <br />
+    </div>
+
+    <div>
+      <h2>Audio with src = stream .mp3 file</h2>
+      <audio id="audioNormal" controls></audio>
+      <button onclick="playNormal()">Play</button>
+    </div>
+
+    <br />
+
+    <div>
+      <h2>Audio with src = stream .mp3 file but error after 1 second</h2>
+      <audio id="audioError" controls></audio>
+      <button onclick="playError()">Play</button>
+    </div>
+
+    <br />
+
+    <div>
+      <h2>Audio with src = stream .mp3 file but slow</h2>
+      <div id="status"></div>
+      <audio id="audioSlow" controls></audio>
+      <button onclick="playSlow()">Play</button>
+    </div>
+  </body>
+  <script>
+    function playNormal() {
+      const audio = document.getElementById("audioNormal");
+
+      // Set src only when clicked
+      audio.src = "/local-stream";
+      audio.play();
+    }
+
+    function playSlow() {
+      const statusDiv = document.getElementById("status");
+
+      const audio = document.getElementById("audioSlow");
+      function updateState(state) {
+        audioState = state;
+        console.log("Audio state:", state);
+        statusDiv.textContent = "Audio state: " + state;
+      }
+      // Set src only when clicked
+      audio.src = "/slow-stream";
+      audio.play();
+
+      // Event listeners
+      audio.addEventListener("loadstart", () => updateState("loading"));
+      audio.addEventListener("waiting", () =>
+        updateState("loading / buffering")
+      );
+      audio.addEventListener("progress", () =>
+        updateState("loading / buffering")
+      );
+      audio.addEventListener("playing", () => updateState("playing"));
+      audio.addEventListener("timeupdate", () => {
+        if (audioState !== "playing") updateState("playing");
+      });
+      audio.addEventListener("pause", () => updateState("paused"));
+      audio.addEventListener("stalled", () => updateState("stalled"));
+      audio.addEventListener("ended", () => updateState("ended"));
+      audio.addEventListener("abort", () => updateState("aborted"));
+      audio.addEventListener("error", () => updateState("error"));
+    }
+
+    function playError() {
+      const audio = document.getElementById("audioError");
+
+      // Reset first (important if replaying)
+      audio.pause();
+      audio.currentTime = 0;
+
+      audio.src = "/local-stream-error";
+      audio.play();
+
+      const events = [
+        "loadstart",
+        "durationchange",
+        "loadedmetadata",
+        "loadeddata",
+        "progress",
+        "canplay",
+        "canplaythrough",
+        "play",
+        "playing",
+        "pause",
+        "ended",
+        "timeupdate",
+        "seeking",
+        "seeked",
+        "volumechange",
+        "ratechange",
+        "waiting",
+        "stalled",
+        "suspend",
+        "abort",
+        "emptied",
+        "error",
+      ];
+
+      /*
+      events.forEach((e) =>
+        audio.addEventListener(e, (value) => {
+          console.log("Audio event:", e);
+          console.log("\t Value = ", value);
+
+          if (e.toString() == "stalled") {
+            return;
+            //audio.pause();
+            //return;
+
+            //audio.pause();
+            //audio.removeAttribute("src"); // detach stream
+            //audio.load(); // reset element
+          }
+        })
+      );
+      */
+
+      let chunkTimeout = null;
+      let isError = false;
+      const TIMEOUT_MS = 1000;
+
+      function resetChunkTimeout() {
+        if (chunkTimeout) clearTimeout(chunkTimeout);
+
+        chunkTimeout = setTimeout(() => {
+          if (isError) {
+            return;
+          }
+          alert("Audio has not received new chunk in 1 second!");
+          isError = true;
+          audio.pause();
+          audio.removeAttribute("src"); // detach stream
+          audio.load(); // reset element
+        }, TIMEOUT_MS);
+      }
+
+      audio.addEventListener("progress", () => {
+        resetChunkTimeout();
+      });
+
+      audio.addEventListener("timeupdate", () => {
+        resetChunkTimeout();
+      });
+
+      audio.addEventListener("stalled", () => {
+        console.warn("Stalled event fired");
+        resetChunkTimeout();
+      });
+
+      // Start timer on play
+      audio.addEventListener("play", () => resetChunkTimeout());
+      audio.addEventListener("ended", () => clearTimeout(chunkTimeout));
+      audio.addEventListener("pause", () => clearTimeout(chunkTimeout));
+
+      
+      audio.addEventListener("error", () => {
+        console.log("Error rồi nè")
+      });
+    }
+  </script>
+</html>
